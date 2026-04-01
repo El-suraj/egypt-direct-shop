@@ -1,0 +1,24 @@
+{
+  "name": "egypt-direct-shop-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Egypt Direct Shop",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.38.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "winston": "^3.11.0",
+    "axios": "^1.6.0",
+    "node-cache": "^5.1.2"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  }
+}

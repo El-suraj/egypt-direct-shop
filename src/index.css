@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 40 10% 4%;
+    --foreground: 40 20% 95%;
+
+    --card: 40 8% 8%;
+    --card-foreground: 40 20% 95%;
+
+    --popover: 40 8% 8%;
+    --popover-foreground: 40 20% 95%;
+
+    --primary: 40 55% 55%;
+    --primary-foreground: 40 10% 4%;
+
+    --secondary: 40 8% 14%;
+    --secondary-foreground: 40 20% 85%;
+
+    --muted: 40 5% 12%;
+    --muted-foreground: 40 10% 55%;
+
+    --accent: 155 40% 40%;
+    --accent-foreground: 155 60% 95%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 8% 16%;
+    --input: 40 8% 16%;
+    --ring: 40 55% 55%;
+
+    --radius: 0.5rem;
+
+    --gold: 40 55% 55%;
+    --gold-light: 40 60% 70%;
+    --gold-dark: 40 45% 35%;
+    --emerald: 155 40% 40%;
+    --emerald-light: 155 45% 55%;
+    --sand: 38 25% 88%;
+    --sand-dark: 38 15% 20%;
+
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+
+    --gradient-gold: linear-gradient(135deg, hsl(40 55% 55%), hsl(45 65% 65%));
+    --gradient-hero: linear-gradient(180deg, hsl(40 10% 4%) 0%, hsl(40 12% 8%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(40 8% 10%), hsl(40 8% 6%));
+    --shadow-gold: 0 4px 20px -4px hsl(40 55% 55% / 0.25);
+    --shadow-elevated: 0 8px 32px -8px hsl(0 0% 0% / 0.5);
+
+    --sidebar-background: 40 8% 6%;
+    --sidebar-foreground: 40 20% 85%;
+    --sidebar-primary: 40 55% 55%;
+    --sidebar-primary-foreground: 40 10% 4%;
+    --sidebar-accent: 40 8% 12%;
+    --sidebar-accent-foreground: 40 20% 85%;
+    --sidebar-border: 40 8% 16%;
+    --sidebar-ring: 40 55% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .text-gradient-gold {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .bg-gradient-gold {
+    background: var(--gradient-gold);
+  }
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+  .shadow-gold {
+    box-shadow: var(--shadow-gold);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+}
