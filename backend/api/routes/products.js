@@ -135,8 +135,33 @@ router.get("/", async (req, res) => {
 // GET /api/products/:id - Get single product details
 router.get("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
+    let { id } = req.params;
 
+    // === 1. Strong early validation ===
+    if (!id || id === "undefined" || id === "null" || id.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID",
+        error: "Product ID is required",
+      });
+    }
+
+    // Trim and clean
+    id = id.trim();
+
+    // UUID format validation (prevents postgres 22P02 error)
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      logger.warn(`Invalid UUID format received: ${id}`);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+        error: "Product ID must be a valid UUID",
+      });
+    }
+
+    // === 2. Fetch main product ===
     const { data: product, error } = await req.supabase
       .from("products")
       .select("*")
@@ -144,14 +169,40 @@ router.get("/:id", async (req, res) => {
       .single();
 
     if (error) {
+      // Handle "no rows returned" from .single()
       if (error.code === "PGRST116") {
-        return res.status(404).json({ error: "Product not found" });
+        return res.status(404).json({
+          success: false,
+          message: "Product not found",
+        });
       }
-      logger.error(`Product detail error: ${error.message}`);
-      return res.status(500).json({ error: "Failed to fetch product" });
+
+      // Handle UUID casting error (22P02) - extra safety
+      if (error.code === "22P02") {
+        logger.error(`UUID casting error for id: ${id}`);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid product ID",
+        });
+      }
+
+      logger.error(`Product detail error: ${error.message}`, {
+        code: error.code,
+      });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch product",
+      });
     }
 
-    // Get vendor, Category, and variants info
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // === 3. Fetch related data (vendor, category, variants) ===
     const [vendorRes, categoryRes, variantsRes] = await Promise.all([
       product.vendor_id
         ? req.supabase
@@ -159,26 +210,37 @@ router.get("/:id", async (req, res) => {
             .select("id, name, rating, verified, location")
             .eq("id", product.vendor_id)
             .single()
-        : null,
+        : Promise.resolve({ data: null }),
+
       product.category_id
         ? req.supabase
             .from("categories")
             .select("id, name, slug")
             .eq("id", product.category_id)
             .single()
-        : null,
+        : Promise.resolve({ data: null }),
+
       req.supabase.from("product_variants").select("*").eq("product_id", id),
     ]);
 
+    // Final response
     res.json({
-      ...product,
-      vendor: vendorRes?.data || null,
-      category: categoryRes?.data || null,
-      variants: variantsRes?.data || [],
+      success: true,
+      data: {
+        ...product,
+        vendor: vendorRes?.data || null,
+        category: categoryRes?.data || null,
+        variants: variantsRes?.data || [],
+      },
     });
   } catch (err) {
-    logger.error(`Product detail route error: ${err.message}`);
-    res.status(500).json({ error: "Internal server error" });
+    logger.error(`Product detail route error: ${err.message}`, {
+      stack: err.stack,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 });
 

@@ -86,27 +86,53 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const response = await api.get(`/products/${id}`);
-        const p = response;
-        if (!p) {
-          setLoading(false);
-          return;
-        }
-        setProduct(p);
-        setVariants(p.variants || []);
-        setVendor(p.vendor || null);
-        setCategory(p.category || null);
-      } catch (error) {
-        console.error("Failed to load product:", error);
-        setLoading(false);
-      }
-    };
-    if (id) load();
-  }, [id]);
+const load = async () => {
+  if (!id) {
+    setError("Product ID is missing");
+    setLoading(false);
+    return;
+  }
+
+  // Optional: Basic UUID format check
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    setError("Invalid product ID");
+    setLoading(false);
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setError(null);
+
+    const response = await api.getProductDetail(id);   // ← Use this method
+
+    const productData = response?.success 
+      ? response.data 
+      : response;   // fallback in case structure changes
+
+    if (!productData || !productData.id) {
+      setError("Product not found");
+      return;
+    }
+
+    setProduct(productData);
+    setVariants(productData.variants || []);
+    setVendor(productData.vendor || null);
+    setCategory(productData.category || null);
+  } catch (error: any) {
+    console.error("Failed to load product:", error);
+    setError(error.message || "Failed to load product. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  load();
+}, [id]);
 
   const sizes = useMemo(
     () => [...new Set(variants.filter((v) => v.size).map((v) => v.size!))],

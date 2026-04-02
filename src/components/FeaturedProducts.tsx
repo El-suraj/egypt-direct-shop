@@ -30,11 +30,18 @@ const FeaturedProducts = () => {
       try {
         setLoading(true);
         const response = await api.getProducts({ limit: 8, sort: "newest" });
-        if (response && response.products) {
-          setProducts(response.products);
-        }
+        console.log("Featured Products Response:", response);
+        // Handle different possible response shapes
+        const fetchedProducts =
+          response?.data?.products ||
+          response?.products ||
+          response?.data ||
+          [];
+
+        setProducts(fetchedProducts);
       } catch (error) {
         console.error("Failed to fetch featured products:", error);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -88,13 +95,17 @@ const FeaturedProducts = () => {
               catAbayas;
             return (
               <motion.div
-                key={product.id}
+                key={product.id || `product-${i}`} // Fallback key if product.id is missing
                 className="group bg-card rounded-lg overflow-hidden border border-border hover:border-primary/30 transition-colors cursor-pointer"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                onClick={() => navigate(`/product/${product.slug}`)}
+                onClick={() => {
+                  if (product.id) {
+                    navigate(`/product/${product.id}`);
+                  }
+                }}
               >
                 <div className="relative aspect-[3/4] overflow-hidden">
                   <img

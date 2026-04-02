@@ -51,27 +51,20 @@ const Products = () => {
     isLoading,
     error,
   } = useQuery({
-    queryKey: [
-      "products",
-      search,
-      sortBy,
-      priceRange,
-      selectedCategory,
-      page,
-      limit,
-    ],
+    queryKey: ["products", search, sortBy, priceRange, selectedCategory, page],
     queryFn: async () => {
-      const params = new URLSearchParams({
+      const filters = {
         search,
         sort: sortBy,
-        minPrice: priceRange.min.toString(),
-        maxPrice: priceRange.max.toString(),
+        minPrice: priceRange.min,
+        maxPrice: priceRange.max,
         category: selectedCategory,
-        page: page.toString(),
-        limit: limit.toString(),
-      });
+        page: page,
+        limit: limit,
+      };
 
-      const response = await api.get(`/api/products?${params}`);
+      const response = await api.getProducts(filters); // ← Use this instead
+      console.log("📦 API Response:", response); // ← Debug: Check this in console
       return response;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -114,8 +107,15 @@ const Products = () => {
     setSearchParams(params);
   };
 
-  const products: Product[] = productsData?.products || [];
-  const total = productsData?.pagination?.total || 0;
+  const products: Product[] =
+    productsData?.data?.products ||
+    productsData?.products ||
+    productsData?.data ||
+    [];
+  const total =
+    productsData?.data?.pagination?.total ||
+    productsData?.pagination?.total ||
+    products.length;
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -242,9 +242,13 @@ const Products = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
+                  {products.map((product) => {
+                    if (!product.id) {
+                      console.warn("Product without ID:", product);
+                      return null;
+                    }
+                    return <ProductCard key={product.id} product={product} />;
+                  })}
                 </div>
 
                 {/* Pagination */}

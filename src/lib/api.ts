@@ -101,7 +101,14 @@ export class APIClient {
   }
 
   async getProductDetail(productId: string) {
-    return this.fetch(`/api/products/${productId}`);
+    const response = await this.fetch(`/api/products/${productId}`);
+
+    // Auto-unwrap common response pattern
+    if (response?.success && response.data) {
+      return response.data;
+    }
+
+    return response;
   }
 
   // Orders

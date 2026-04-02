@@ -28,8 +28,14 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const { addItem } = useCart();
   const [isWishlisted, setIsWishlisted] = React.useState(false);
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  if (!product?.id) {
+    console.warn("ProductCard received product without ID:", product);
+    return null; // or a placeholder
+  }
+
+const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();           // Important: prevent link navigation
     if (!product.in_stock) {
       toast.error("Product out of stock");
       return;
@@ -43,8 +49,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
     toast.success("Added to cart");
   };
 
-  const handleWishlist = (e: React.MouseEvent) => {
+const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();           // Important: prevent link navigation
     setIsWishlisted(!isWishlisted);
     toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
   };
