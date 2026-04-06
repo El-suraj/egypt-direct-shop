@@ -15,6 +15,12 @@ import OrderDetail from "./pages/OrderDetail.tsx";
 import Checkout from "./pages/Checkout.tsx";
 import Wishlist from "./pages/Wishlist.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import AdminDashboard from "./pages/admin/Dashboard.tsx";
+import AdminProducts from "./pages/admin/AdminProducts.tsx";
+import AdminOrders from "./pages/admin/AdminOrders.tsx";
+import AdminCategories from "./pages/admin/AdminCategories.tsx";
+import AdminVendors from "./pages/admin/AdminVendors.tsx";
+import AdminCustomers from "./pages/admin/AdminCustomers.tsx";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +42,13 @@ const App = () => (
               <Route path="/order/:id" element={<OrderDetail />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/wishlist" element={<Wishlist />} />
+              {/* Admin Routes */}
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/orders" element={<AdminOrders />} />
+              <Route path="/admin/categories" element={<AdminCategories />} />
+              <Route path="/admin/vendors" element={<AdminVendors />} />
+              <Route path="/admin/customers" element={<AdminCustomers />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
