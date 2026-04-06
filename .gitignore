@@ -13,14 +13,14 @@ dist-ssr
 *.local
 
 # Environment variables (NEVER commit these!)
-.env
-.env.local
-.env.example
-.env.*.local
-backend/.env
-backend/.env.local
-backend/.env.example
-backend/.env.*.local
+# .env
+# .env.local
+# .env.example
+# .env.*.local
+# backend/.env
+# backend/.env.local
+# backend/.env.example
+# backend/.env.*.local
 
 # Editor directories and files
 .vscode/*
