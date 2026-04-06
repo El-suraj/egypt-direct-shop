@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-interface FetchOptions extends RequestInit {
+interface FetchOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
@@ -49,7 +49,7 @@ export class APIClient {
       config.body = JSON.stringify(config.body);
     }
 
-    const response = await fetch(url, config);
+    const response = await fetch(url, config as RequestInit);
 
     if (!response.ok) {
       const error = await response
