@@ -55,7 +55,7 @@ export default function AdminOrders() {
       .limit(100);
 
     if (filterStatus !== "all") {
-      query = query.eq("status", filterStatus);
+      query = query.eq("status", filterStatus as any);
     }
 
     const { data } = await query;
