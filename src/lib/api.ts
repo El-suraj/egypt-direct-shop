@@ -49,7 +49,7 @@ export class APIClient {
       config.body = JSON.stringify(config.body);
     }
 
-    const response = await fetch(url, config);
+    const response = await fetch(url, config as RequestInit);
 
     if (!response.ok) {
       const error = await response

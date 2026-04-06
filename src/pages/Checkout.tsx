@@ -110,7 +110,10 @@ const handleCheckout = async () => {
 
     console.log("Final orderPayload being sent:", orderPayload);
 
-    const orderResponse = await api.createOrder(orderPayload);
+    const orderResponse = await api.createOrder({
+      ...orderPayload,
+      total_price: finalTotal,
+    });
     console.log("Order created successfully:", orderResponse);
 
     const orderId = orderResponse?.data?.id || orderResponse?.id;
