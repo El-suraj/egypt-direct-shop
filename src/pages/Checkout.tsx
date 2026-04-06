@@ -91,7 +91,7 @@ const handleCheckout = async () => {
         // Debug what keys are actually available
         console.log("Cart item keys:", Object.keys(item));
         
-        const productId = item.product_id || item.id || item.productId || item.product_id; // try multiple possible keys
+        const productId = item.productId;
         
         if (!productId) {
           console.error("Missing product_id for item:", item);
@@ -110,7 +110,10 @@ const handleCheckout = async () => {
 
     console.log("Final orderPayload being sent:", orderPayload);
 
-    const orderResponse = await api.createOrder(orderPayload);
+    const orderResponse = await api.createOrder({
+      ...orderPayload,
+      total_price: finalTotal,
+    });
     console.log("Order created successfully:", orderResponse);
 
     const orderId = orderResponse?.data?.id || orderResponse?.id;
