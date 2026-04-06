@@ -88,53 +88,87 @@ router.get("/:id", async (req, res) => {
 // POST /api/orders - Create new order
 router.post("/", async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { items, shipping_address, total_price } = req.body;
+    const { items, shipping_address, shipping_fee_ngn, service_fee_ngn } = req.body;
 
-    if (!items || items.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "Order must contain at least one item" });
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: "Cart cannot be empty" });
     }
 
-    // Create order
+    let calculatedSubtotal = 0;
+    const orderItemsData = [];
+
+    for (const item of items) {
+      const productId = item.product_id || item.id;   // ← Try both common keys
+
+      if (!productId) {
+        logger.error("Missing product_id in cart item:", item);
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid cart item: missing product_id" 
+        });
+      }
+
+      const price = Number(item.price) || 0;
+      const quantity = Number(item.quantity) || 1;
+      const itemTotal = price * quantity;
+
+      calculatedSubtotal += itemTotal;
+
+      orderItemsData.push({
+        product_id: productId,        // ← Guaranteed non-null
+        quantity,
+        price,
+        subtotal_ngn: itemTotal
+      });
+    }
+
+    const shipping = Number(shipping_fee_ngn) || 0;
+    const service = Number(service_fee_ngn) || 0;
+    const finalTotal = calculatedSubtotal + shipping + service;
+
+    if (finalTotal <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid order total" });
+    }
+
+    // Insert order
     const { data: order, error: orderError } = await req.supabase
       .from("orders")
       .insert({
-        user_id: userId,
+        user_id: req.user?.id,
         status: "pending",
-        total_price,
-        shipping_address,
+        total_ngn: finalTotal.toFixed(2),
+        subtotal_ngn: calculatedSubtotal.toFixed(2),
+        shipping_fee_ngn: shipping.toFixed(2),
+        service_fee_ngn: service.toFixed(2),
+        shipping_address: shipping_address || null,
       })
       .select()
       .single();
 
-    if (orderError) {
-      logger.error(`Order creation error: ${orderError.message}`);
-      return res.status(500).json({ error: "Failed to create order" });
-    }
+    if (orderError) throw orderError;
 
-    // Create order items
-    const orderItems = items.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: item.price,
+    // Insert items
+    const itemsToInsert = orderItemsData.map(item => ({
+      ...item,
+      order_id: order.id
     }));
 
     const { error: itemsError } = await req.supabase
       .from("order_items")
-      .insert(orderItems);
+      .insert(itemsToInsert);
 
-    if (itemsError) {
-      logger.error(`Order items creation error: ${itemsError.message}`);
-      return res.status(500).json({ error: "Failed to create order items" });
-    }
+    if (itemsError) throw itemsError;
 
-    res.status(201).json(order);
+    logger.info(`Order created: ${order.id} | Total: ₦${finalTotal}`);
+
+    res.status(201).json({
+      success: true,
+      data: order
+    });
+
   } catch (err) {
-    logger.error(`Order creation route error: ${err.message}`);
-    res.status(500).json({ error: "Internal server error" });
+    logger.error(`Create order error: ${err.message}`);
+    res.status(500).json({ success: false, message: err.message || "Failed to create order" });
   }
 });
 

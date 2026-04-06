@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 
 export interface CartItem {
   productId: string;
@@ -36,6 +36,24 @@ export const useCart = () => useContext(CartContext);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem("cart");
+    if (savedCart) {
+      try {
+        setItems(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Failed to parse saved cart", e);
+        localStorage.removeItem("cart");
+      }
+    }
+  }, []);
+
+  // Save cart to localStorage whenever items change
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(items));
+  }, [items]);
 
   const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
     setItems((prev) => {
