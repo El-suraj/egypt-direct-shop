@@ -44,8 +44,8 @@ const handleAddToCart = (e: React.MouseEvent) => {
       productId: product.id,
       name: product.name,
       price: product.price_ngn,
-      shippingFee: product.shipping_fee_ngn || 0,
-      serviceFee: product.service_fee_ngn || 0,
+      shippingFee: (product as any).shipping_fee_ngn || 0,
+      serviceFee: (product as any).service_fee_ngn || 0,
       image: product.image_url || "",
       vendor: "",
     });
