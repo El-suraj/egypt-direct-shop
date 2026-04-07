@@ -38,6 +38,7 @@ const OrderDetail = () => {
       return response;
     },
     enabled: !!id && !!user,
+    retry: false,
   });
 
   if (!user) {

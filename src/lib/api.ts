@@ -1,6 +1,28 @@
 import { useAuth } from "@/contexts/AuthContext";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const DEFAULT_API_URL = "http://localhost:3001";
+
+function resolveApiUrl() {
+  const rawApiUrl = import.meta.env.VITE_API_URL?.trim();
+
+  if (!rawApiUrl) {
+    return DEFAULT_API_URL;
+  }
+
+  // Accept shorthand values like ":3001" and normalize to localhost.
+  if (rawApiUrl.startsWith(":")) {
+    return `http://localhost${rawApiUrl}`;
+  }
+
+  // If protocol is omitted, default to http for local development.
+  if (!/^https?:\/\//i.test(rawApiUrl)) {
+    return `http://${rawApiUrl}`;
+  }
+
+  return rawApiUrl;
+}
+
+const API_URL = resolveApiUrl();
 
 interface FetchOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;

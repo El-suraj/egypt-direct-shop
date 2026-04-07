@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { ShoppingCart, Heart, Star } from "lucide-react";
 import { toast } from "sonner";
+import React, { useEffect } from "react";
 
 interface Product {
   id: string;
@@ -26,7 +29,22 @@ const formatNGN = (n: number) => `₦${n.toLocaleString()}`;
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const { addItem } = useCart();
+  const { user } = useAuth();
   const [isWishlisted, setIsWishlisted] = React.useState(false);
+
+  useEffect(() => {
+    const checkWishlist = async () => {
+      if (!user || !product?.id) return;
+      const { data } = await supabase
+        .from("wishlists")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("product_id", product.id)
+        .maybeSingle();
+      setIsWishlisted(!!data);
+    };
+    checkWishlist();
+  }, [user, product?.id]);
 
   if (!product?.id) {
     console.warn("ProductCard received product without ID:", product);
@@ -52,11 +70,38 @@ const handleAddToCart = (e: React.MouseEvent) => {
     toast.success("Added to cart");
   };
 
-const handleWishlist = (e: React.MouseEvent) => {
+const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();           // Important: prevent link navigation
-    setIsWishlisted(!isWishlisted);
-    toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
+    if (!user) {
+      toast.error("Please log in to use wishlist");
+      return;
+    }
+
+    if (isWishlisted) {
+      const { error } = await supabase
+        .from("wishlists")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("product_id", product.id);
+      if (error) {
+        toast.error("Failed to remove from wishlist");
+        return;
+      }
+      setIsWishlisted(false);
+      toast.success("Removed from wishlist");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("wishlists")
+      .insert({ user_id: user.id, product_id: product.id });
+    if (error) {
+      toast.error("Failed to add to wishlist");
+      return;
+    }
+    setIsWishlisted(true);
+    toast.success("Added to wishlist");
   };
 
   return (
@@ -145,7 +190,5 @@ const handleWishlist = (e: React.MouseEvent) => {
     </Link>
   );
 };
-
-import React from "react";
 
 export default ProductCard;

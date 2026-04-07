@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ShoppingBag, Heart, User, Menu, X } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const navLinks = [
   { label: "New Arrivals", href: "/products", category: null },
@@ -15,9 +16,25 @@ const navLinks = [
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { setIsOpen, itemCount } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+      setIsAdmin((data || []).some((row) => row.role === "admin"));
+    };
+    checkAdmin();
+  }, [user]);
 
   return (
     <>
@@ -76,6 +93,14 @@ const Navbar = () => {
             >
               <User className="w-5 h-5" />
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => navigate("/admin")}
+                className="hidden md:flex px-3 py-1.5 text-xs font-body font-semibold rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors uppercase tracking-wide"
+              >
+                Admin
+              </button>
+            )}
             <button
               onClick={() => setIsOpen(true)}
               className="relative p-2 text-muted-foreground hover:text-primary transition-colors"
@@ -142,6 +167,17 @@ const Navbar = () => {
                   >
                     <User className="w-4 h-4" /> Account
                   </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false);
+                        navigate("/admin");
+                      }}
+                      className="text-sm text-primary flex items-center gap-2 font-body"
+                    >
+                      <User className="w-4 h-4" /> Admin Dashboard
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>

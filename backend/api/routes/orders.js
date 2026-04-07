@@ -11,7 +11,7 @@ router.get("/", async (req, res) => {
 
     let query = req.supabase
       .from("orders")
-      .select("id, status, total_price, created_at, shipping_address", {
+      .select("id, status, total_ngn, created_at, shipping_address", {
         count: "exact",
       })
       .eq("user_id", userId);
@@ -70,7 +70,9 @@ router.get("/:id", async (req, res) => {
     // Get order items
     const { data: items, error: itemsError } = await req.supabase
       .from("order_items")
-      .select("id, product_id, quantity, price, products(name, images)")
+      .select(
+        "id, product_id, product_name, quantity, price_ngn, variant_id, products(name, image_url)",
+      )
       .eq("order_id", id);
 
     if (itemsError) {
@@ -78,7 +80,18 @@ router.get("/:id", async (req, res) => {
       return res.status(500).json({ error: "Failed to fetch order items" });
     }
 
-    res.json({ ...order, items });
+    const normalizedItems = (items || []).map((item) => ({
+      ...item,
+      product: item.products
+        ? {
+            name: item.products.name,
+            image_url: item.products.image_url,
+          }
+        : null,
+      product_name: item.product_name || item.products?.name || "Product",
+    }));
+
+    res.json({ ...order, items: normalizedItems });
   } catch (err) {
     logger.error(`Order detail route error: ${err.message}`);
     res.status(500).json({ error: "Internal server error" });

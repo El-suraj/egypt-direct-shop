@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Heart, ShoppingBag, BadgeCheck, MapPin } from "lucide-react";
 import { api } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import catAbayas from "@/assets/cat-abayas.jpg";
@@ -22,6 +24,8 @@ const formatNGN = (amount: number) => `₦${amount.toLocaleString()}`;
 const FeaturedProducts = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wishlistedIds, setWishlistedIds] = useState<Set<string>>(new Set());
+  const { user } = useAuth();
   const { addItem } = useCart();
   const navigate = useNavigate();
 
@@ -50,6 +54,24 @@ const FeaturedProducts = () => {
     fetchFeaturedProducts();
   }, []);
 
+  useEffect(() => {
+    const loadWishlistState = async () => {
+      if (!user || products.length === 0) return;
+      const productIds = products.map((p) => p.id).filter(Boolean);
+      if (productIds.length === 0) return;
+
+      const { data } = await supabase
+        .from("wishlists")
+        .select("product_id")
+        .eq("user_id", user.id)
+        .in("product_id", productIds);
+
+      setWishlistedIds(new Set((data || []).map((item) => item.product_id)));
+    };
+
+    loadWishlistState();
+  }, [user, products]);
+
   const handleAddToBag = (product: any, e: React.MouseEvent) => {
     e.stopPropagation();
     addItem({
@@ -65,6 +87,44 @@ const FeaturedProducts = () => {
       vendor: product.vendors?.name || "Egyptian Store",
     });
     toast.success("Added to bag!");
+  };
+
+  const toggleWishlist = async (productId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      toast.error("Please log in to use wishlist");
+      navigate("/auth");
+      return;
+    }
+
+    if (wishlistedIds.has(productId)) {
+      const { error } = await supabase
+        .from("wishlists")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("product_id", productId);
+      if (error) {
+        toast.error("Failed to remove from wishlist");
+        return;
+      }
+      const updated = new Set(wishlistedIds);
+      updated.delete(productId);
+      setWishlistedIds(updated);
+      toast.success("Removed from wishlist");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("wishlists")
+      .insert({ user_id: user.id, product_id: productId });
+    if (error) {
+      toast.error("Failed to add to wishlist");
+      return;
+    }
+    const updated = new Set(wishlistedIds);
+    updated.add(productId);
+    setWishlistedIds(updated);
+    toast.success("Added to wishlist");
   };
 
   return (
@@ -122,9 +182,11 @@ const FeaturedProducts = () => {
                   <button
                     className="absolute top-3 right-3 w-8 h-8 bg-background/80 backdrop-blur-sm rounded-full flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
                     aria-label="Add to wishlist"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => toggleWishlist(product.id, e)}
                   >
-                    <Heart className="w-4 h-4" />
+                    <Heart
+                      className={`w-4 h-4 ${wishlistedIds.has(product.id) ? "fill-current text-primary" : ""}`}
+                    />
                   </button>
                   <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                     <button
