@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Eye } from "lucide-react";
+import { Eye, Receipt, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Constants } from "@/integrations/supabase/types";
 
@@ -46,6 +46,8 @@ export default function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const fetchOrders = async () => {
     let query = supabase
@@ -74,6 +76,58 @@ export default function AdminOrders() {
       .eq("order_id", order.id);
     setOrderItems(data || []);
     setDetailOpen(true);
+  };
+
+  const viewReceipt = async (order: any) => {
+    if (!order.payment_reference) {
+      toast.error("No receipt uploaded for this order");
+      return;
+    }
+
+    const { data } = await supabase.storage
+      .from("payment-receipts")
+      .createSignedUrl(order.payment_reference, 300);
+
+    if (data?.signedUrl) {
+      setReceiptUrl(data.signedUrl);
+      setSelectedOrder(order);
+      setReceiptOpen(true);
+    } else {
+      toast.error("Could not load receipt");
+    }
+  };
+
+  const confirmPayment = async (orderId: string) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "purchased_egypt" as any })
+      .eq("id", orderId);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Payment confirmed! Order moved to Purchased in Egypt.");
+      fetchOrders();
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, status: "purchased_egypt" });
+      }
+      setReceiptOpen(false);
+    }
+  };
+
+  const rejectPayment = async (orderId: string) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "cancelled" as any })
+      .eq("id", orderId);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Order cancelled.");
+      fetchOrders();
+      setReceiptOpen(false);
+    }
   };
 
   const updateStatus = async (orderId: string, newStatus: string) => {
@@ -159,8 +213,23 @@ export default function AdminOrders() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {order.payment_method || "—"}
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {order.payment_method === "bank_transfer" ? "Bank Transfer" : order.payment_method || "—"}
+                        </span>
+                        {order.payment_reference && order.payment_method === "bank_transfer" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => viewReceipt(order)}
+                            title="View receipt"
+                          >
+                            <Receipt className="h-4 w-4 text-primary" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => viewOrder(order)}>
@@ -201,6 +270,29 @@ export default function AdminOrders() {
                     <p className="font-medium text-foreground">
                       {new Date(selectedOrder.created_at).toLocaleString()}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Payment</p>
+                    <p className="font-medium text-foreground">
+                      {selectedOrder.payment_method === "bank_transfer" ? "Bank Transfer" : selectedOrder.payment_method || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Receipt</p>
+                    {selectedOrder.payment_reference ? (
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto text-primary"
+                        onClick={() => {
+                          setDetailOpen(false);
+                          viewReceipt(selectedOrder);
+                        }}
+                      >
+                        View Receipt <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    ) : (
+                      <p className="text-muted-foreground text-xs">Not uploaded</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-muted-foreground">Subtotal</p>
@@ -264,6 +356,74 @@ export default function AdminOrders() {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Receipt Viewer Dialog */}
+        <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Receipt className="w-5 h-5" />
+                Transfer Receipt — Order #{selectedOrder?.id.slice(0, 8)}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm bg-muted/30 rounded-lg p-4">
+                <div>
+                  <p className="text-muted-foreground">Order Total</p>
+                  <p className="font-bold text-primary">₦{Number(selectedOrder?.total_ngn || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Payment Method</p>
+                  <p className="font-medium">Bank Transfer</p>
+                </div>
+              </div>
+
+              {/* Receipt Image */}
+              {receiptUrl && (
+                <div className="border rounded-lg overflow-hidden bg-muted/20">
+                  {receiptUrl.includes(".pdf") ? (
+                    <div className="p-8 text-center">
+                      <Receipt className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground mb-3">PDF Receipt</p>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={receiptUrl} target="_blank" rel="noopener noreferrer">
+                          Open PDF <ExternalLink className="w-3 h-3 ml-1" />
+                        </a>
+                      </Button>
+                    </div>
+                  ) : (
+                    <img
+                      src={receiptUrl}
+                      alt="Transfer receipt"
+                      className="w-full max-h-[400px] object-contain"
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              {selectedOrder?.status === "pending" && (
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    className="flex-1"
+                    onClick={() => confirmPayment(selectedOrder.id)}
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Confirm Payment
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => rejectPayment(selectedOrder.id)}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Reject & Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>
