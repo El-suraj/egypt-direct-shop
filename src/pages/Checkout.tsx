@@ -19,7 +19,7 @@ const nigerianStates = [
   "Yobe","Zamfara",
 ];
 
-const BANK_DETAILS = {
+const DEFAULT_BANK_DETAILS = {
   bankName: "Zenith Bank",
   accountNumber: "1234567890",
   accountName: "Egypt Plugs Ltd",
@@ -37,6 +37,7 @@ const Checkout = () => {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [orderCreated, setOrderCreated] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [bankDetails, setBankDetails] = useState(DEFAULT_BANK_DETAILS);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -50,6 +51,26 @@ const Checkout = () => {
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    const fetchBankDetails = async () => {
+      const { data, error } = await supabase
+        .from("payment_settings")
+        .select("bank_name, account_number, account_name")
+        .eq("id", "primary")
+        .maybeSingle();
+
+      if (error || !data) return;
+
+      setBankDetails({
+        bankName: data.bank_name,
+        accountNumber: data.account_number,
+        accountName: data.account_name,
+      });
+    };
+
+    fetchBankDetails();
+  }, []);
 
   const createOrder = async (): Promise<string> => {
     if (!user) throw new Error("Not authenticated");
@@ -287,9 +308,9 @@ const Checkout = () => {
                   <div className="p-4 rounded-lg bg-muted/50 border border-dashed">
                     <p className="text-sm font-semibold mb-2">Transfer to:</p>
                     <div className="space-y-1 text-sm">
-                      <p><span className="text-muted-foreground">Bank:</span> {BANK_DETAILS.bankName}</p>
-                      <p><span className="text-muted-foreground">Account No:</span> <span className="font-mono font-bold">{BANK_DETAILS.accountNumber}</span></p>
-                      <p><span className="text-muted-foreground">Account Name:</span> {BANK_DETAILS.accountName}</p>
+                      <p><span className="text-muted-foreground">Bank:</span> {bankDetails.bankName}</p>
+                      <p><span className="text-muted-foreground">Account No:</span> <span className="font-mono font-bold">{bankDetails.accountNumber}</span></p>
+                      <p><span className="text-muted-foreground">Account Name:</span> {bankDetails.accountName}</p>
                       <p><span className="text-muted-foreground">Amount:</span> <span className="font-bold text-primary">{formatNGN(total)}</span></p>
                     </div>
                   </div>

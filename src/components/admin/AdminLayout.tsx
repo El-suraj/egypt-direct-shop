@@ -9,6 +9,7 @@ import {
   Tags,
   Store,
   Users,
+  Landmark,
   LogOut,
   ChevronLeft,
   Menu,
@@ -23,6 +24,7 @@ const navItems = [
   { label: "Categories", path: "/admin/categories", icon: Tags },
   { label: "Vendors", path: "/admin/vendors", icon: Store },
   { label: "Customers", path: "/admin/customers", icon: Users },
+  { label: "Payment", path: "/admin/payment-settings", icon: Landmark },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
