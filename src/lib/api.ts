@@ -2,24 +2,28 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const DEFAULT_API_URL = "http://localhost:3001";
 
+function stripTrailingSlashes(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
 function resolveApiUrl() {
   const rawApiUrl = import.meta.env.VITE_API_URL?.trim();
 
   if (!rawApiUrl) {
-    return DEFAULT_API_URL;
+    return stripTrailingSlashes(DEFAULT_API_URL);
   }
 
   // Accept shorthand values like ":3001" and normalize to localhost.
   if (rawApiUrl.startsWith(":")) {
-    return `http://localhost${rawApiUrl}`;
+    return stripTrailingSlashes(`http://localhost${rawApiUrl}`);
   }
 
   // If protocol is omitted, default to http for local development.
   if (!/^https?:\/\//i.test(rawApiUrl)) {
-    return `http://${rawApiUrl}`;
+    return stripTrailingSlashes(`http://${rawApiUrl}`);
   }
 
-  return rawApiUrl;
+  return stripTrailingSlashes(rawApiUrl);
 }
 
 const API_URL = resolveApiUrl();
