@@ -15,7 +15,7 @@ const Footer = () => {
               {[Instagram, Twitter, MessageCircle].map((Icon, i) => (
                 <a
                   key={i}
-                  href="#"
+                  href="https://x.com/EgyptPlugs"
                   className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                 >
                   <Icon className="w-4 h-4" />
