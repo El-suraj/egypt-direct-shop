@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,19 +18,10 @@ import {
   ArrowLeft,
   Minus,
   Plus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { motion } from "framer-motion";
-import catAbayas from "@/assets/cat-abayas.jpg";
-import catShoes from "@/assets/cat-shoes.jpg";
-import catBags from "@/assets/cat-bags.jpg";
-import catAccessories from "@/assets/cat-accessories.jpg";
-
-const placeholderImages: Record<string, string> = {
-  abayas: catAbayas,
-  shoes: catShoes,
-  bags: catBags,
-  accessories: catAccessories,
-};
+import { motion, AnimatePresence } from "framer-motion";
 
 const formatNGN = (n: number) => `₦${n.toLocaleString()}`;
 
@@ -45,6 +35,7 @@ type Product = {
   shipping_fee_ngn: number | null;
   service_fee_ngn: number | null;
   image_url: string | null;
+  images: string[] | null;
   badge: string | null;
   rating: number | null;
   review_count: number | null;
@@ -69,7 +60,6 @@ type Vendor = {
   rating: number | null;
   total_sales: number | null;
 };
-type Category = { slug: string };
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -80,59 +70,81 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [category, setCategory] = useState<Category | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-const load = async () => {
-  if (!id) {
-    setError("Product ID is missing");
-    setLoading(false);
-    return;
-  }
+  const load = async () => {
+    if (!id) { setError("Product ID is missing"); setLoading(false); return; }
 
-  // Optional: Basic UUID format check
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    setError("Invalid product ID");
-    setLoading(false);
-    return;
-  }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) { setError("Invalid product ID"); setLoading(false); return; }
 
-  try {
-    setLoading(true);
-    setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-    const response = await api.getProductDetail(id);   // ← Use this method
+      const { data: productData, error: prodErr } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-    const productData = response?.success 
-      ? response.data 
-      : response;   // fallback in case structure changes
+      if (prodErr || !productData) { setError("Product not found"); return; }
+      setProduct(productData);
 
-    if (!productData || !productData.id) {
-      setError("Product not found");
-      return;
+      // Fetch variants
+      const { data: variantData } = await supabase
+        .from("product_variants")
+        .select("*")
+        .eq("product_id", id);
+      setVariants((variantData as Variant[]) || []);
+
+      // Fetch vendor
+      if (productData.vendor_id) {
+        const { data: vendorData } = await supabase
+          .from("vendors")
+          .select("*")
+          .eq("id", productData.vendor_id)
+          .single();
+        setVendor(vendorData);
+      }
+
+      // Check wishlist
+      if (user) {
+        const { data: wl } = await supabase
+          .from("wishlists")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("product_id", id)
+          .maybeSingle();
+        setWishlisted(!!wl);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to load product.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setProduct(productData);
-    setVariants(productData.variants || []);
-    setVendor(productData.vendor || null);
-    setCategory(productData.category || null);
-  } catch (error: any) {
-    console.error("Failed to load product:", error);
-    setError(error.message || "Failed to load product. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+  useEffect(() => { load(); }, [id]);
 
-useEffect(() => {
-  load();
-}, [id]);
+  // Build image gallery from images array + image_url
+  const allImages = useMemo(() => {
+    const imgs: string[] = [];
+    if (product?.images && product.images.length > 0) {
+      imgs.push(...product.images.filter(Boolean));
+    }
+    if (product?.image_url && !imgs.includes(product.image_url)) {
+      imgs.unshift(product.image_url);
+    }
+    if (imgs.length === 0) imgs.push("/placeholder.svg");
+    return imgs;
+  }, [product]);
 
   const sizes = useMemo(
     () => [...new Set(variants.filter((v) => v.size).map((v) => v.size!))],
@@ -145,13 +157,11 @@ useEffect(() => {
 
   const selectedVariant = useMemo(() => {
     if (!sizes.length && !colors.length) return null;
-    return (
-      variants.find(
-        (v) =>
-          (!sizes.length || v.size === selectedSize) &&
-          (!colors.length || v.color === selectedColor),
-      ) || null
-    );
+    return variants.find(
+      (v) =>
+        (!sizes.length || v.size === selectedSize) &&
+        (!colors.length || v.color === selectedColor),
+    ) || null;
   }, [variants, selectedSize, selectedColor, sizes, colors]);
 
   useEffect(() => {
@@ -159,32 +169,19 @@ useEffect(() => {
     if (colors.length && !selectedColor) setSelectedColor(colors[0]);
   }, [sizes, colors, selectedSize, selectedColor]);
 
-  const imageUrl =
-    product?.image_url ||
-    (category?.slug ? placeholderImages[category.slug] : catAbayas);
-  const adjustedPrice =
-    (product?.price_ngn || 0) + (selectedVariant?.price_adjustment_ngn || 0);
+  const adjustedPrice = (product?.price_ngn || 0) + (selectedVariant?.price_adjustment_ngn || 0);
   const shippingFee = product?.shipping_fee_ngn || 5000;
   const serviceFee = product?.service_fee_ngn || 2000;
 
   const toggleWishlist = async () => {
-    if (!user) {
-      navigate("/auth");
-      return;
-    }
+    if (!user) { navigate("/auth"); return; }
     if (!product) return;
     if (wishlisted) {
-      await supabase
-        .from("wishlists")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("product_id", product.id);
+      await supabase.from("wishlists").delete().eq("user_id", user.id).eq("product_id", product.id);
       setWishlisted(false);
       toast.success("Removed from wishlist");
     } else {
-      await supabase
-        .from("wishlists")
-        .insert({ user_id: user.id, product_id: product.id });
+      await supabase.from("wishlists").insert({ user_id: user.id, product_id: product.id });
       setWishlisted(true);
       toast.success("Added to wishlist");
     }
@@ -192,14 +189,8 @@ useEffect(() => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    if (sizes.length && !selectedSize) {
-      toast.error("Please select a size");
-      return;
-    }
-    if (colors.length && !selectedColor) {
-      toast.error("Please select a color");
-      return;
-    }
+    if (sizes.length && !selectedSize) { toast.error("Please select a size"); return; }
+    if (colors.length && !selectedColor) { toast.error("Please select a color"); return; }
 
     addItem({
       productId: product.id,
@@ -208,7 +199,7 @@ useEffect(() => {
       price: adjustedPrice,
       shippingFee,
       serviceFee,
-      image: imageUrl,
+      image: allImages[0],
       size: selectedSize || undefined,
       color: selectedColor || undefined,
       vendor: vendor?.name || "Egyptian Store",
@@ -221,9 +212,7 @@ useEffect(() => {
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container py-16 text-center">
-          <div className="animate-pulse text-muted-foreground font-body">
-            Loading...
-          </div>
+          <div className="animate-pulse text-muted-foreground font-body">Loading...</div>
         </div>
       </div>
     );
@@ -233,14 +222,8 @@ useEffect(() => {
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container py-16 text-center">
-          <p className="text-muted-foreground font-body">Product not found.</p>
-          <Button
-            variant="outline"
-            onClick={() => navigate("/")}
-            className="mt-4"
-          >
-            Go Home
-          </Button>
+          <p className="text-muted-foreground font-body">{error || "Product not found."}</p>
+          <Button variant="outline" onClick={() => navigate("/")} className="mt-4">Go Home</Button>
         </div>
       </div>
     );
@@ -257,84 +240,102 @@ useEffect(() => {
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
-          {/* Image */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="relative aspect-[3/4] rounded-lg overflow-hidden bg-card"
-          >
-            <img
-              src={imageUrl}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
-            {product.badge && (
-              <span className="absolute top-4 left-4 px-3 py-1.5 bg-gradient-gold text-primary-foreground text-xs font-body font-bold rounded uppercase tracking-wider">
-                {product.badge}
-              </span>
+          {/* Image Gallery */}
+          <div className="space-y-3">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="relative aspect-[3/4] rounded-lg overflow-hidden bg-card"
+            >
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={activeImageIndex}
+                  src={allImages[activeImageIndex]}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                />
+              </AnimatePresence>
+              {product.badge && (
+                <span className="absolute top-4 left-4 px-3 py-1.5 bg-gradient-gold text-primary-foreground text-xs font-body font-bold rounded uppercase tracking-wider">
+                  {product.badge}
+                </span>
+              )}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setActiveImageIndex((i) => (i - 1 + allImages.length) % allImages.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-background/80 flex items-center justify-center hover:bg-background"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setActiveImageIndex((i) => (i + 1) % allImages.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-background/80 flex items-center justify-center hover:bg-background"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </motion.div>
+
+            {/* Thumbnail strip */}
+            {allImages.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {allImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition-colors ${
+                      idx === activeImageIndex ? "border-primary" : "border-transparent hover:border-primary/50"
+                    }`}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             {vendor && (
               <div className="flex items-center gap-2 mb-3">
                 <MapPin className="w-3.5 h-3.5 text-emerald" />
-                <span className="text-xs font-body text-emerald font-medium">
-                  {vendor.name}
-                </span>
-                {vendor.verified && (
-                  <BadgeCheck className="w-3.5 h-3.5 text-emerald" />
-                )}
-                <span className="text-xs text-muted-foreground font-body">
-                  • {vendor.location}
-                </span>
+                <span className="text-xs font-body text-emerald font-medium">{vendor.name}</span>
+                {vendor.verified && <BadgeCheck className="w-3.5 h-3.5 text-emerald" />}
+                <span className="text-xs text-muted-foreground font-body">• {vendor.location}</span>
               </div>
             )}
 
-            <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">
-              {product.name}
-            </h1>
+            <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">{product.name}</h1>
 
-            {product.rating && (
+            {product.rating ? (
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-primary text-primary" />
-                  <span className="text-sm font-body font-medium">
-                    {product.rating}
-                  </span>
+                  <span className="text-sm font-body font-medium">{product.rating}</span>
                 </div>
-                <span className="text-xs text-muted-foreground font-body">
-                  ({product.review_count} reviews)
-                </span>
+                <span className="text-xs text-muted-foreground font-body">({product.review_count} reviews)</span>
               </div>
-            )}
+            ) : null}
 
             {/* Price breakdown */}
             <div className="p-4 rounded-lg bg-card border border-border mb-6 space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground font-body">
-                  Product Price
-                </span>
-                <span className="text-lg font-bold text-primary font-body">
-                  {formatNGN(adjustedPrice)}
-                </span>
+                <span className="text-sm text-muted-foreground font-body">Product Price</span>
+                <span className="text-lg font-bold text-primary font-body">{formatNGN(adjustedPrice)}</span>
               </div>
               <div className="flex justify-between text-sm font-body">
                 <span className="text-muted-foreground">Original (EGP)</span>
-                <span className="text-muted-foreground">
-                  EGP {product.price_egp.toLocaleString()}
-                </span>
+                <span className="text-muted-foreground">EGP {product.price_egp.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm font-body">
                 <span className="text-muted-foreground">Shipping</span>
-                <span className="text-foreground">
-                  {formatNGN(shippingFee)}
-                </span>
+                <span className="text-foreground">{formatNGN(shippingFee)}</span>
               </div>
               <div className="flex justify-between text-sm font-body">
                 <span className="text-muted-foreground">Service Fee</span>
@@ -342,21 +343,17 @@ useEffect(() => {
               </div>
               <div className="flex justify-between pt-2 border-t border-border font-body font-bold">
                 <span>Total</span>
-                <span className="text-primary">
-                  {formatNGN(adjustedPrice + shippingFee + serviceFee)}
-                </span>
+                <span className="text-primary">{formatNGN(adjustedPrice + shippingFee + serviceFee)}</span>
               </div>
               <span className="inline-block px-2 py-0.5 bg-emerald/10 text-emerald text-[9px] font-body font-semibold rounded uppercase tracking-wider">
                 Original Store Price
               </span>
             </div>
 
-            {/* Variants */}
+            {/* Colors */}
             {colors.length > 0 && (
               <div className="mb-4">
-                <label className="text-sm font-body font-medium text-foreground mb-2 block">
-                  Color
-                </label>
+                <label className="text-sm font-body font-medium text-foreground mb-2 block">Color</label>
                 <div className="flex flex-wrap gap-2">
                   {colors.map((c) => (
                     <button
@@ -375,11 +372,10 @@ useEffect(() => {
               </div>
             )}
 
+            {/* Sizes */}
             {sizes.length > 0 && (
               <div className="mb-6">
-                <label className="text-sm font-body font-medium text-foreground mb-2 block">
-                  Size
-                </label>
+                <label className="text-sm font-body font-medium text-foreground mb-2 block">Size</label>
                 <div className="flex flex-wrap gap-2">
                   {sizes.map((s) => (
                     <button
@@ -400,23 +396,13 @@ useEffect(() => {
 
             {/* Quantity */}
             <div className="mb-6">
-              <label className="text-sm font-body font-medium text-foreground mb-2 block">
-                Quantity
-              </label>
+              <label className="text-sm font-body font-medium text-foreground mb-2 block">Quantity</label>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center text-foreground hover:border-primary/50"
-                >
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg border border-border flex items-center justify-center text-foreground hover:border-primary/50">
                   <Minus className="w-4 h-4" />
                 </button>
-                <span className="text-lg font-body font-medium w-8 text-center">
-                  {quantity}
-                </span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center text-foreground hover:border-primary/50"
-                >
+                <span className="text-lg font-body font-medium w-8 text-center">{quantity}</span>
+                <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg border border-border flex items-center justify-center text-foreground hover:border-primary/50">
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
@@ -424,21 +410,11 @@ useEffect(() => {
 
             {/* Actions */}
             <div className="flex gap-3">
-              <Button
-                onClick={handleAddToCart}
-                className="flex-1 h-12 bg-gradient-gold text-primary-foreground font-body font-semibold uppercase tracking-wider gap-2"
-              >
+              <Button onClick={handleAddToCart} className="flex-1 h-12 bg-gradient-gold text-primary-foreground font-body font-semibold uppercase tracking-wider gap-2">
                 <ShoppingBag className="w-4 h-4" /> Add to Bag
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className={`h-12 w-12 border-border ${wishlisted ? "text-red-500" : ""}`}
-                onClick={toggleWishlist}
-              >
-                <Heart
-                  className={`w-5 h-5 ${wishlisted ? "fill-current" : ""}`}
-                />
+              <Button variant="outline" size="icon" className={`h-12 w-12 border-border ${wishlisted ? "text-red-500" : ""}`} onClick={toggleWishlist}>
+                <Heart className={`w-5 h-5 ${wishlisted ? "fill-current" : ""}`} />
               </Button>
             </div>
 
@@ -448,14 +424,9 @@ useEffect(() => {
                 { icon: ShieldCheck, text: "100% Authentic" },
                 { icon: Truck, text: "5-10 Days Delivery" },
               ].map(({ icon: Icon, text }) => (
-                <div
-                  key={text}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-card border border-border"
-                >
+                <div key={text} className="flex items-center gap-2 p-3 rounded-lg bg-card border border-border">
                   <Icon className="w-4 h-4 text-emerald" />
-                  <span className="text-xs font-body text-muted-foreground">
-                    {text}
-                  </span>
+                  <span className="text-xs font-body text-muted-foreground">{text}</span>
                 </div>
               ))}
             </div>
@@ -463,35 +434,23 @@ useEffect(() => {
             {/* Description */}
             {product.description && (
               <div className="mt-8">
-                <h3 className="font-display text-lg font-bold mb-3">
-                  Description
-                </h3>
-                <p className="text-sm text-muted-foreground font-body leading-relaxed">
-                  {product.description}
-                </p>
+                <h3 className="font-display text-lg font-bold mb-3">Description</h3>
+                <p className="text-sm text-muted-foreground font-body leading-relaxed">{product.description}</p>
               </div>
             )}
 
             {/* Vendor info */}
             {vendor && (
               <div className="mt-8 p-4 rounded-lg bg-card border border-border">
-                <h3 className="font-display text-lg font-bold mb-2">
-                  About the Store
-                </h3>
+                <h3 className="font-display text-lg font-bold mb-2">About the Store</h3>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-body font-medium text-foreground">
-                    {vendor.name}
-                  </span>
-                  {vendor.verified && (
-                    <BadgeCheck className="w-4 h-4 text-emerald" />
-                  )}
+                  <span className="font-body font-medium text-foreground">{vendor.name}</span>
+                  {vendor.verified && <BadgeCheck className="w-4 h-4 text-emerald" />}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground font-body">
                   <span>📍 {vendor.location}</span>
-                  {vendor.rating && <span>⭐ {vendor.rating}/5</span>}
-                  {vendor.total_sales && (
-                    <span>{vendor.total_sales.toLocaleString()} sales</span>
-                  )}
+                  {vendor.rating ? <span>⭐ {vendor.rating}/5</span> : null}
+                  {vendor.total_sales ? <span>{vendor.total_sales.toLocaleString()} sales</span> : null}
                 </div>
               </div>
             )}
