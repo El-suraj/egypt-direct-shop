@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import ProductCard from "@/components/ProductCard";
 import ProductFilter from "@/components/ProductFilter";
@@ -15,20 +16,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, X } from "lucide-react";
-import { api } from "@/lib/api";
-
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  price_ngn: number;
-  rating: number;
-  image_url: string;
-  in_stock: boolean;
-  category: {
-    name: string;
-  };
-}
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -45,7 +32,7 @@ const Products = () => {
   const limit = 12;
   const page = parseInt(searchParams.get("page") || "1");
 
-  // Fetch products with filters
+  // Fetch products from Supabase
   const {
     data: productsData,
     isLoading,
@@ -53,36 +40,85 @@ const Products = () => {
   } = useQuery({
     queryKey: ["products", search, sortBy, priceRange, selectedCategory, page],
     queryFn: async () => {
-      const filters = {
-        search,
-        sort: sortBy,
-        minPrice: priceRange.min,
-        maxPrice: priceRange.max,
-        category: selectedCategory,
-        page: page,
-        limit: limit,
-      };
+      let query = supabase
+        .from("products")
+        .select("*, categories(name)", { count: "exact" });
 
-      const response = await api.getProducts(filters); // ← Use this instead
-      console.log("📦 API Response:", response); // ← Debug: Check this in console
-      return response;
+      // Search filter
+      if (search) {
+        query = query.ilike("name", `%${search}%`);
+      }
+
+      // Category filter - support both slug and id
+      if (selectedCategory) {
+        // Check if it's a UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(selectedCategory)) {
+          query = query.eq("category_id", selectedCategory);
+        } else {
+          // It's a slug - need to find category id first
+          const { data: cat } = await supabase
+            .from("categories")
+            .select("id")
+            .eq("slug", selectedCategory)
+            .maybeSingle();
+          if (cat) {
+            query = query.eq("category_id", cat.id);
+          }
+        }
+      }
+
+      // Price range
+      query = query.gte("price_ngn", priceRange.min).lte("price_ngn", priceRange.max);
+
+      // Sorting
+      switch (sortBy) {
+        case "price-asc":
+          query = query.order("price_ngn", { ascending: true });
+          break;
+        case "price-desc":
+          query = query.order("price_ngn", { ascending: false });
+          break;
+        case "rating":
+          query = query.order("rating", { ascending: false, nullsFirst: false });
+          break;
+        case "bestseller":
+          query = query.order("review_count", { ascending: false, nullsFirst: false });
+          break;
+        default: // newest
+          query = query.order("created_at", { ascending: false });
+      }
+
+      // Pagination
+      const from = (page - 1) * limit;
+      query = query.range(from, from + limit - 1);
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      // Map category join to the shape ProductCard expects
+      const products = (data || []).map((p: any) => ({
+        ...p,
+        category: p.categories ? { name: p.categories.name } : undefined,
+      }));
+
+      return { products, total: count || products.length };
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch categories
+  // Fetch categories from Supabase
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
-      try {
-        const response = await api.get("/api/products/categories/all");
-        return response || [];
-      } catch (error) {
-        console.error("Failed to fetch categories:", error);
-        return [];
-      }
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, slug")
+        .order("name");
+      if (error) throw error;
+      return data || [];
     },
-    staleTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: 1000 * 60 * 30,
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -107,15 +143,8 @@ const Products = () => {
     setSearchParams(params);
   };
 
-  const products: Product[] =
-    productsData?.data?.products ||
-    productsData?.products ||
-    productsData?.data ||
-    [];
-  const total =
-    productsData?.data?.pagination?.total ||
-    productsData?.pagination?.total ||
-    products.length;
+  const products = productsData?.products || [];
+  const total = productsData?.total || 0;
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -242,13 +271,9 @@ const Products = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {products.map((product) => {
-                    if (!product.id) {
-                      console.warn("Product without ID:", product);
-                      return null;
-                    }
-                    return <ProductCard key={product.id} product={product} />;
-                  })}
+                  {products.map((product: any) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
                 </div>
 
                 {/* Pagination */}
