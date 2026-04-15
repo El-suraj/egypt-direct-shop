@@ -34,7 +34,7 @@ const FeaturedProducts = () => {
       try {
         setLoading(true);
         const response = await api.getProducts({ limit: 8, sort: "newest" });
-        console.log("Featured Products Response:", response);
+        // console.log("Featured Products Response:", response);
         // Handle different possible response shapes
         const fetchedProducts =
           response?.data?.products ||

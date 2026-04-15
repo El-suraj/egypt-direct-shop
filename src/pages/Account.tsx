@@ -316,13 +316,13 @@ const Account = () => {
                 <h2 className="font-display text-xl font-bold mb-4">
                   Order History
                 </h2>
-                {import.meta.env.DEV && (
+                {/* {import.meta.env.DEV && (
                   <div className="mb-4 p-3 rounded-lg border border-border bg-muted/30 text-xs font-mono">
                     <p>context user.id: {user.id}</p>
                     <p>session user.id: {sessionUserId || "null"}</p>
                     <p>orders fetched: {orders.length}</p>
                   </div>
-                )}
+                )} */}
                 {ordersLoading ? (
                   <div className="space-y-3">
                     <Skeleton className="h-20 w-full" />
