@@ -306,6 +306,7 @@ export default function AdminProducts() {
                 setVariants={setVariants}
               />
 
+              <Button onClick={handleSave} disabled={loading} className="w-full">
                 {loading ? "Saving..." : editing ? "Update Product" : "Create Product"}
               </Button>
             </div>
