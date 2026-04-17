@@ -72,7 +72,11 @@ export default function AdminOrders() {
     setSelectedOrder(order);
     const { data } = await supabase
       .from("order_items")
-      .select("*")
+      .select(`
+        *,
+        products:product_id ( image_url, images ),
+        product_variants:variant_id ( size, color )
+      `)
       .eq("order_id", order.id);
     setOrderItems(data || []);
     setDetailOpen(true);
