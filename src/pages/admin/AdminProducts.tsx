@@ -71,6 +71,7 @@ export default function AdminProducts() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setVariants([]);
     setDialogOpen(true);
   };
 
@@ -83,6 +84,7 @@ export default function AdminProducts() {
       description: p.description || "", category_id: p.category_id || "",
       vendor_id: p.vendor_id || "", badge: p.badge || "", in_stock: p.in_stock !== false,
     });
+    setVariants([]); // will be loaded by ProductVariantsManager
     setDialogOpen(true);
   };
 
