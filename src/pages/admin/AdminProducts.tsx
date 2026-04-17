@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import ProductVariantsManager, { VariantRow, saveVariants } from "@/components/admin/ProductVariantsManager";
 
 interface Product {
   id: string;
