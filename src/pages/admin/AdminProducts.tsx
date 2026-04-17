@@ -117,12 +117,28 @@ export default function AdminProducts() {
       badge: form.badge || null, in_stock: form.in_stock,
     };
 
-    let error;
+    let error: any;
+    let savedId = editing?.id;
     if (editing) {
       ({ error } = await supabase.from("products").update(payload).eq("id", editing.id));
     } else {
-      ({ error } = await supabase.from("products").insert(payload));
+      const { data, error: insertErr } = await supabase
+        .from("products")
+        .insert(payload)
+        .select("id")
+        .single();
+      error = insertErr;
+      savedId = data?.id;
     }
+
+    if (!error && savedId) {
+      try {
+        await saveVariants(savedId, variants);
+      } catch (e: any) {
+        toast.error(`Product saved but variants failed: ${e.message}`);
+      }
+    }
+
     setLoading(false);
     if (error) toast.error(error.message);
     else {
