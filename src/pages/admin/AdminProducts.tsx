@@ -53,6 +53,7 @@ export default function AdminProducts() {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [variants, setVariants] = useState<VariantRow[]>([]);
 
   const fetchProducts = async () => {
     let query = supabase.from("products").select("*").order("created_at", { ascending: false });
