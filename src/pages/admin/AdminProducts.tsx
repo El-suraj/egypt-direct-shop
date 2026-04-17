@@ -298,7 +298,14 @@ export default function AdminProducts() {
                 <input type="checkbox" checked={form.in_stock} onChange={(e) => setForm({ ...form, in_stock: e.target.checked })} className="h-4 w-4" />
                 <Label>In Stock</Label>
               </div>
-              <Button onClick={handleSave} disabled={loading} className="w-full">
+
+              {/* Variants Manager */}
+              <ProductVariantsManager
+                productId={editing?.id || null}
+                variants={variants}
+                setVariants={setVariants}
+              />
+
                 {loading ? "Saving..." : editing ? "Update Product" : "Create Product"}
               </Button>
             </div>
