@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import ProductVariantsManager, { VariantRow, saveVariants } from "@/components/admin/ProductVariantsManager";
 
 interface Product {
   id: string;
@@ -52,6 +53,7 @@ export default function AdminProducts() {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [variants, setVariants] = useState<VariantRow[]>([]);
 
   const fetchProducts = async () => {
     let query = supabase.from("products").select("*").order("created_at", { ascending: false });
@@ -69,6 +71,7 @@ export default function AdminProducts() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setVariants([]);
     setDialogOpen(true);
   };
 
@@ -81,6 +84,7 @@ export default function AdminProducts() {
       description: p.description || "", category_id: p.category_id || "",
       vendor_id: p.vendor_id || "", badge: p.badge || "", in_stock: p.in_stock !== false,
     });
+    setVariants([]); // will be loaded by ProductVariantsManager
     setDialogOpen(true);
   };
 
@@ -113,12 +117,28 @@ export default function AdminProducts() {
       badge: form.badge || null, in_stock: form.in_stock,
     };
 
-    let error;
+    let error: any;
+    let savedId = editing?.id;
     if (editing) {
       ({ error } = await supabase.from("products").update(payload).eq("id", editing.id));
     } else {
-      ({ error } = await supabase.from("products").insert(payload));
+      const { data, error: insertErr } = await supabase
+        .from("products")
+        .insert(payload)
+        .select("id")
+        .single();
+      error = insertErr;
+      savedId = data?.id;
     }
+
+    if (!error && savedId) {
+      try {
+        await saveVariants(savedId, variants);
+      } catch (e: any) {
+        toast.error(`Product saved but variants failed: ${e.message}`);
+      }
+    }
+
     setLoading(false);
     if (error) toast.error(error.message);
     else {
@@ -278,6 +298,14 @@ export default function AdminProducts() {
                 <input type="checkbox" checked={form.in_stock} onChange={(e) => setForm({ ...form, in_stock: e.target.checked })} className="h-4 w-4" />
                 <Label>In Stock</Label>
               </div>
+
+              {/* Variants Manager */}
+              <ProductVariantsManager
+                productId={editing?.id || null}
+                variants={variants}
+                setVariants={setVariants}
+              />
+
               <Button onClick={handleSave} disabled={loading} className="w-full">
                 {loading ? "Saving..." : editing ? "Update Product" : "Create Product"}
               </Button>

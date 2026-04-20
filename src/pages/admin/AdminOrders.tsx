@@ -72,7 +72,11 @@ export default function AdminOrders() {
     setSelectedOrder(order);
     const { data } = await supabase
       .from("order_items")
-      .select("*")
+      .select(`
+        *,
+        products:product_id ( image_url, images ),
+        product_variants:variant_id ( size, color )
+      `)
       .eq("order_id", order.id);
     setOrderItems(data || []);
     setDetailOpen(true);
@@ -334,24 +338,52 @@ export default function AdminOrders() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Items</p>
                   <div className="space-y-2">
-                    {orderItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex justify-between items-center bg-muted/30 rounded-lg p-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {item.product_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Qty: {item.quantity}
+                    {orderItems.map((item) => {
+                      const img =
+                        item.products?.image_url ||
+                        item.products?.images?.[0] ||
+                        null;
+                      const variant = item.product_variants;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex gap-3 items-center bg-muted/30 rounded-lg p-3"
+                        >
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={item.product_name}
+                              className="w-14 h-14 rounded-md object-cover border border-border flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-md bg-muted border border-border flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {item.product_name}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                Qty: {item.quantity}
+                              </span>
+                              {variant?.size && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                  Size: {variant.size}
+                                </span>
+                              )}
+                              {variant?.color && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                  {variant.color}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm font-medium whitespace-nowrap">
+                            ₦{Number(item.price_ngn).toLocaleString()}
                           </p>
                         </div>
-                        <p className="text-sm font-medium">
-                          ₦{Number(item.price_ngn).toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
