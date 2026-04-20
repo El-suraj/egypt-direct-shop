@@ -30,7 +30,7 @@ const CategoryGrid = () => {
           {categories.map((cat, i) => (
             <motion.a
               key={cat.name}
-              href="#"
+              href="/products"
               className="group relative aspect-[3/4] rounded-lg overflow-hidden"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -47,7 +47,9 @@ const CategoryGrid = () => {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-4">
-                <h3 className="font-display text-lg font-semibold text-foreground">{cat.name}</h3>
+                <h3 className="font-display text-lg font-semibold text-foreground">
+                  {cat.name}
+                </h3>
                 <p className="text-xs text-primary font-body">{cat.count}</p>
               </div>
             </motion.a>

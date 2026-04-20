@@ -140,7 +140,7 @@ const FeaturedProducts = () => {
             </p>
           </div>
           <a
-            href="#"
+            href="/Products"
             className="hidden md:inline-flex text-sm font-body font-medium text-primary hover:text-gold-light transition-colors uppercase tracking-wide"
           >
             View All →
@@ -234,7 +234,7 @@ const FeaturedProducts = () => {
 
         <div className="md:hidden text-center mt-8">
           <a
-            href="#"
+            href="/products"
             className="text-sm font-body font-medium text-primary uppercase tracking-wide"
           >
             View All Products →

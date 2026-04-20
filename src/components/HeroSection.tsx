@@ -44,7 +44,7 @@ const HeroSection = () => {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <a
-                href="#shop"
+                href="/products"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-gold text-primary-foreground font-body font-semibold rounded-lg shadow-gold hover:opacity-90 transition-opacity text-sm tracking-wide uppercase"
               >
                 Shop Now
@@ -65,8 +65,12 @@ const HeroSection = () => {
                 { value: "4.9★", label: "Trust Score" },
               ].map((stat) => (
                 <div key={stat.label}>
-                  <p className="font-display text-xl md:text-2xl font-bold text-primary">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground font-body">{stat.label}</p>
+                  <p className="font-display text-xl md:text-2xl font-bold text-primary">
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-body">
+                    {stat.label}
+                  </p>
                 </div>
               ))}
             </div>
